@@ -6,3 +6,5 @@ settings.json
 .vscode
 .github
 .workflows
+__pycache__
+*.pyc
