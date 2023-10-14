@@ -38,6 +38,7 @@ def test_encode_decode_numpy(tokenizer: LaTEXTokenizer):
 
 
 def test_encode_decode_unknown_token(tokenizer: LaTEXTokenizer):
+    # \\eriuert doesn't exist in LaTEX vocab
     TEST_INPUT = [
         "g \\eriuert 3 - \\sqrt 3 - 0 . 9 1 7 7 f _ { 0 } ^ { 2 } \\; ."
     ]
@@ -55,3 +56,7 @@ def test_encode_decode_unknown_token(tokenizer: LaTEXTokenizer):
 def test_get_special_tokens(tokenizer: LaTEXTokenizer):
     assert isinstance(tokenizer.special_tokens, dict)
     assert isinstance(tokenizer.special_tokens.get("<EOS>"), int)
+
+
+def test_vocabs(tokenizer: LaTEXTokenizer):
+    assert len(tokenizer.id2token) == len(tokenizer.token2id)

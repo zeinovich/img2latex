@@ -1,1 +1,1 @@
-from resnet_lstm import ResnetLSTM
+from .resnet_lstm import ResnetLSTM
