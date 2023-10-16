@@ -1,9 +1,8 @@
 import argparse
-import os
-import json
 import re
 from collections import Counter
-import pandas as pd
+
+from .utils import read_input, save_output
 
 
 def cli() -> argparse.Namespace:
@@ -36,53 +35,13 @@ def cli() -> argparse.Namespace:
     return args
 
 
-def read_input(path: str, col_name: str = None) -> pd.DataFrame:
-    # read input file or raise ValueError
-    if path.endswith(".csv"):
-        df = pd.read_csv(path)
-
-    elif path.endswith(".parquet"):
-        df = pd.read_parquet(path)
-
-    elif path.endswith(".pkl"):
-        df = pd.read_pickle(path)
-
-    else:
-        raise ValueError(
-            f"Extension {path.split('.')[-1]} is not yet supported. Use one of [csv, parquet, pickle]"
-        )
-
-    # check if df has only one column
-    if not col_name:
-        assert (
-            df.shape[1] == 1
-        ), "DataFrame should have only one column or column to be used must be specified"
-        col = df.columns.to_list()[0]
-        df = df.rename({col: "formula"}, axis=1)
-    # or name is specified
-    else:
-        df = df.rename({col_name: "formula"}, axis=1)
-
-    return df
-
-
-def save_output(
-    token2id: dict[str, int], id2token: dict[int, str], path: str
-) -> None:
-    with open(f"{path}/token2id.json", "w") as f:
-        json.dump(token2id, f, indent=4)
-
-    with open(f"{path}/id2token.json", "w") as f:
-        json.dump(id2token, f, indent=4)
-
-
 def main():
-    args = cli()
+    args = vars(cli())
 
-    INPUT_FILE = args.input_file
-    OUTPUT_FOLDER = args.output_folder
-    ADD_SPECIAL = args.add_special
-    COL_NAME = args.col_name
+    INPUT_FILE = args["input_file"]
+    OUTPUT_FOLDER = args["output_folder"]
+    ADD_SPECIAL = args["add_special"]
+    COL_NAME = args["col_name"]
 
     df = read_input(INPUT_FILE, COL_NAME)
 
@@ -100,7 +59,8 @@ def main():
     token2id = {k: i for i, k in enumerate(vocab)}
     id2token = {i: k for i, k in enumerate(vocab)}
 
-    save_output(token2id, id2token, path=OUTPUT_FOLDER)
+    save_output(token2id, path=f"{OUTPUT_FOLDER}/token2id.json")
+    save_output(id2token, path=f"{OUTPUT_FOLDER}/id2token.json")
 
 
 if __name__ == "__main__":

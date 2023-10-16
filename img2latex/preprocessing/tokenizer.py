@@ -24,7 +24,12 @@ class LaTEXTokenizer:
         self._id2token = {int(v): k for k, v in token2id.items()}
         self._max_len = max_len
 
-    def tokenize(self, x: list[str]) -> torch.Tensor:  # separate dots
+    def tokenize(
+        self,
+        x: list[str],
+        return_tensors: bool = True,
+        pad: bool = True,
+    ) -> Union[torch.Tensor, list]:  # separate dots
         """
         Tokenize list of sentences.
 
@@ -59,12 +64,17 @@ class LaTEXTokenizer:
         x = [[self._token2id["<SOS>"]] + s for s in x]
         x = [s + [self._token2id["<EOS>"]] for s in x]
         x = [s[: self.max_len] for s in x]
-        # pad sequences to max length
-        x = [
-            s + [self._token2id["<PAD>"]] * (self.max_len - len(s)) for s in x
-        ]
 
-        x = torch.Tensor(x)
+        if pad:
+            # pad sequences to max length
+            x = [
+                s + [self._token2id["<PAD>"]] * (self.max_len - len(s))
+                for s in x
+            ]
+
+        if return_tensors:
+            x = torch.Tensor(x)
+
         return x
 
     def decode(
