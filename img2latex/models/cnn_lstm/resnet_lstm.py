@@ -116,6 +116,42 @@ class ResnetLSTM(nn.Module):
 
         return hidden_t, cell_t, out_t, logit
 
+    def predict(self, x: torch.Tensor) -> torch.Tensor:
+        batch_size = x.size(0)
+        encoded_img = self.encoder(x)
+
+        # outputs of shape (B, MAX_LEN, VOCAB_SIZE (OUTPUT_DIM))
+        outputs = (
+            torch.ones(batch_size, self._max_len, self._output_dim)
+            .type_as(x)
+            .long()
+            * self._vocab["<PAD>"]
+        )
+        # 1st input is always <START_SEQ>
+        input_token = (
+            torch.ones(batch_size, 1).type_as(x).long() * self._vocab["<SOS>"]
+        )
+        output = encoded_img
+        hidden = self.init_hidden(encoded_img)
+        cell = self.init_cell(encoded_img)
+
+        for t in range(1, self._max_len + 2):
+            hidden, cell, output, logit = self.decode(
+                hidden=hidden,
+                cell=cell,
+                out_t=output,
+                input_token=input_token,
+            )
+
+            outputs[:, t, ...] = logit
+            input_token = torch.argmax(logit, 1)
+
+            if input_token == self._vocab["<EOS>"]:
+                outputs[:, t + 1, ...] = self._vocab["<PAD>"]
+                break
+
+        return outputs
+
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         return self.forward(x)
 
