@@ -31,6 +31,11 @@ def cli() -> argparse.Namespace:
         default=None,
         help="Column of DataFrame to be used. If set to None, DataFrame is required to have one column",
     )
+    parser.add_argument(
+        "--add-padding",
+        action=argparse.BooleanOptionalAction,
+        help="Whether or not pad sequences to max_len=512",
+    )
 
     args = parser.parse_args()
     return args
@@ -51,16 +56,23 @@ def main():
     OUTPUT_FILE = args["output-file"]
     VOCAB_FILE = args["vocab"]
     COL_NAME = args["col_name"]
+    PADDING = args["add_padding"]
 
     token2id = read_vocab(VOCAB_FILE)
     df = read_input(INPUT_FILE, col_name=COL_NAME)
+    df_len = df.shape[0]
+    df = df.dropna(axis=0)
 
-    tokenizer = LaTEXTokenizer(token2id=token2id, max_len=512)
+    if df_len != df.shape[0]:
+        print(f"Dropped {df_len - df.shape[0]} rows from {INPUT_FILE}")
+
     df["formula"] = df["formula"].apply(lambda x: [x])
-    df["tokenized_formula"] = df["formula"].apply(
-        tokenizer.tokenize, return_tensors=False, pad=False
-    )
 
+    tokenizer = LaTEXTokenizer(token2id=token2id)
+    df["tokenized_formula"] = df["formula"].apply(
+        tokenizer.tokenize, return_tensors=False, pad=PADDING, max_len=512
+    )
+    df = df.drop("formula", axis=1)
     save_output(OUTPUT_FILE, df)
 
 

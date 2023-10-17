@@ -34,5 +34,6 @@ def save_output(path: str, obj: object) -> None:
     else:
         ext = path.strip().split(".")[-1]
 
+        # get pandas to_{extension}, ie to_csv, method
         save = getattr(obj, f"to_{ext}")
         save(path, index=False)

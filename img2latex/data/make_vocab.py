@@ -37,9 +37,9 @@ def cli() -> argparse.Namespace:
 
 def main():
     args = vars(cli())
-
-    INPUT_FILE = args["input_file"]
-    OUTPUT_FOLDER = args["output_folder"]
+    print(args)
+    INPUT_FILE = args["input-file"]
+    OUTPUT_FOLDER = args["output-folder"]
     ADD_SPECIAL = args["add_special"]
     COL_NAME = args["col_name"]
 
@@ -59,8 +59,8 @@ def main():
     token2id = {k: i for i, k in enumerate(vocab)}
     id2token = {i: k for i, k in enumerate(vocab)}
 
-    save_output(token2id, path=f"{OUTPUT_FOLDER}/token2id.json")
-    save_output(id2token, path=f"{OUTPUT_FOLDER}/id2token.json")
+    save_output(path=f"{OUTPUT_FOLDER}/token2id.json", obj=token2id)
+    save_output(path=f"{OUTPUT_FOLDER}/id2token.json", obj=id2token)
 
 
 if __name__ == "__main__":
