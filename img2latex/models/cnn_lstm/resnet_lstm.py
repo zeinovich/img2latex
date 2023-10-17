@@ -147,7 +147,7 @@ class ResnetLSTM(nn.Module):
             input_token = torch.argmax(logit, 1)
 
             if input_token == self._vocab["<EOS>"]:
-                outputs[:, t + 1, ...] = self._vocab["<PAD>"]
+                outputs[:, t + 1 :, ...] = self._vocab["<PAD>"]
                 break
 
         return outputs
