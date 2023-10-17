@@ -68,9 +68,9 @@ class ResnetLSTM(nn.Module):
         batch_size = x.size(0)
         encoded_img = self.encoder(x)
 
-        # outputs of shape (B, MAX_LEN + 2 (for <SOS>, <EOS>), VOCAB_SIZE (OUTPUT_DIM))
+        # outputs of shape (B, MAX_LEN, VOCAB_SIZE (OUTPUT_DIM))
         outputs = (
-            torch.ones(batch_size, self._max_len + 2, self._output_dim)
+            torch.ones(batch_size, self._max_len, self._output_dim)
             .type_as(x)
             .long()
             * self._vocab["<PAD>"]

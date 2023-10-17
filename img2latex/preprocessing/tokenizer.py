@@ -15,20 +15,18 @@ class LaTEXTokenizer:
     ---
     id2token: dict[str. int]
         Mapping from tokens to indices
-    max_len: int
-        Maximum length of tokenized output. Defaults to 512 (based on 99,9% quantile of length of formulas in IM2LATEX-100k)
     """
 
-    def __init__(self, token2id: dict[str, int], max_len: int = 512) -> None:
+    def __init__(self, token2id: dict[str, int]) -> None:
         self._token2id = {k: int(v) for k, v in token2id.items()}
         self._id2token = {int(v): k for k, v in token2id.items()}
-        self._max_len = max_len
 
     def tokenize(
         self,
         x: list[str],
         return_tensors: bool = True,
         pad: bool = True,
+        max_len: int = 512,
     ) -> Union[torch.Tensor, list]:  # separate dots
         """
         Tokenize list of sentences.
@@ -63,14 +61,11 @@ class LaTEXTokenizer:
         # insert start and end tokens
         x = [[self._token2id["<SOS>"]] + s for s in x]
         x = [s + [self._token2id["<EOS>"]] for s in x]
-        x = [s[: self.max_len] for s in x]
+        x = [s[:max_len] for s in x]
 
         if pad:
             # pad sequences to max length
-            x = [
-                s + [self._token2id["<PAD>"]] * (self.max_len - len(s))
-                for s in x
-            ]
+            x = [s + [self._token2id["<PAD>"]] * (max_len - len(s)) for s in x]
 
         if return_tensors:
             x = torch.Tensor(x)
@@ -122,13 +117,6 @@ class LaTEXTokenizer:
         """
         tokens = ["<SOS>", "<PAD>", "<EOS>"]
         return {k: self.token2id.get(k, None) for k in tokens}
-
-    @property
-    def max_len(self) -> int:
-        """
-        Get maximum length of sequence
-        """
-        return self._max_len
 
     @property
     def id2token(self) -> dict[int, str]:
