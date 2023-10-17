@@ -1,12 +1,13 @@
 import pytest
 import json
+import warnings
 
-from ..models.tokenizer import LaTEXTokenizer
+from ..preprocessing import LaTEXTokenizer
 
 
 @pytest.fixture()
 def tokenizer():
-    with open("../data/interim/token2id.json", "r") as f:
+    with open("../data/processed/token2id.json", "r") as f:
         token2id = json.load(f)
 
     return LaTEXTokenizer(token2id)
@@ -17,11 +18,11 @@ def test_encode_decode(tokenizer: LaTEXTokenizer):
         "g \\approx 3 - \\sqrt 3 - 0 . 9 1 7 7 f _ { 0 } ^ { 2 } \\; .",
         "g \\approx 3 - \\sqrt 3 - 0 . 9 1 7 7 f _ { 0 } ^ { 2 } \\; .",
     ]
-
-    encoded_input = tokenizer.tokenize(TEST_INPUT)
+    max_len = 512
+    encoded_input = tokenizer.tokenize(TEST_INPUT, max_len=max_len)
     decoded_output = tokenizer.decode(encoded_input)
     assert decoded_output == TEST_INPUT
-    assert encoded_input.size(1) == tokenizer.max_len
+    assert encoded_input.size(1) == max_len
 
 
 def test_encode_decode_numpy(tokenizer: LaTEXTokenizer):
@@ -29,12 +30,12 @@ def test_encode_decode_numpy(tokenizer: LaTEXTokenizer):
         "g \\approx 3 - \\sqrt 3 - 0 . 9 1 7 7 f _ { 0 } ^ { 2 } \\; .",
         "g \\approx 3 - \\sqrt 3 - 0 . 9 1 7 7 f _ { 0 } ^ { 2 } \\; .",
     ]
-
-    encoded_input = tokenizer.tokenize(TEST_INPUT)
+    max_len = 512
+    encoded_input = tokenizer.tokenize(TEST_INPUT, max_len=max_len)
     encoded_input = encoded_input.detach().cpu().numpy()
     decoded_output = tokenizer.decode(encoded_input)
     assert decoded_output == TEST_INPUT
-    assert encoded_input.shape[1] == tokenizer.max_len
+    assert encoded_input.shape[1] == max_len
 
 
 def test_encode_decode_unknown_token(tokenizer: LaTEXTokenizer):
@@ -46,11 +47,18 @@ def test_encode_decode_unknown_token(tokenizer: LaTEXTokenizer):
     TEST_OUTPUT = [
         "g <UNK> 3 - \\sqrt 3 - 0 . 9 1 7 7 f _ { 0 } ^ { 2 } \\; ."
     ]
+    max_len = 512
+    with warnings.catch_warnings(record=True) as w:
+        # Cause all warnings to always be triggered.
+        warnings.simplefilter("always")
+        # Trigger a warning.
+        encoded_input = tokenizer.tokenize(TEST_INPUT, max_len=max_len)
+        assert "Got unknown token" in str(w[-1].message)
 
-    encoded_input = tokenizer.tokenize(TEST_INPUT)
     decoded_output = tokenizer.decode(encoded_input)
+
     assert decoded_output == TEST_OUTPUT
-    assert encoded_input.size(1) == tokenizer.max_len
+    assert encoded_input.size(1) == max_len
 
 
 def test_get_special_tokens(tokenizer: LaTEXTokenizer):

@@ -7,7 +7,7 @@ from ..models.cnn_lstm import ResnetLSTM
 
 @pytest.fixture()
 def token2id() -> dict[str, int]:
-    with open("../data/interim/token2id.json", "r") as f:
+    with open("../data/processed/token2id.json", "r") as f:
         token2id_ = json.load(f)
     return token2id_
 
@@ -81,21 +81,21 @@ def test_resnet_configured(
 
     assert output18.size() == (
         BATCH_SIZE,
-        resnet18_lstm.max_len + 2,
+        resnet18_lstm.max_len,
         resnet18_lstm.output_dim,
     )
     assert output34.size() == (
         BATCH_SIZE,
-        resnet34_lstm.max_len + 2,
+        resnet34_lstm.max_len,
         resnet34_lstm.output_dim,
     )
     assert output50.size() == (
         BATCH_SIZE,
-        resnet50_lstm.max_len + 2,
+        resnet50_lstm.max_len,
         resnet50_lstm.output_dim,
     )
     assert output101.size() == (
         BATCH_SIZE,
-        resnet101_lstm.max_len + 2,
+        resnet101_lstm.max_len,
         resnet101_lstm.output_dim,
     )

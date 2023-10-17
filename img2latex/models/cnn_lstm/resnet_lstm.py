@@ -27,8 +27,9 @@ class ResnetLSTM(nn.Module):
         self._encoder_out = encoder_out
         self._hidden_dim = hidden_dim
         self._vocab = vocab
-        self._emb_dim = emb_dim
+        # output dim is set to vocab_size
         self._output_dim = len(self._vocab)
+        self._emb_dim = emb_dim
         self._max_len = max_output_length
         self._device = device
 
@@ -83,7 +84,7 @@ class ResnetLSTM(nn.Module):
         hidden = self.init_hidden(encoded_img)
         cell = self.init_cell(encoded_img)
 
-        for t in range(1, self._max_len + 2):
+        for t in range(1, self._max_len):
             hidden, cell, output, logit = self.decode(
                 hidden=hidden,
                 cell=cell,
@@ -135,7 +136,7 @@ class ResnetLSTM(nn.Module):
         hidden = self.init_hidden(encoded_img)
         cell = self.init_cell(encoded_img)
 
-        for t in range(1, self._max_len + 2):
+        for t in range(1, self._max_len):
             hidden, cell, output, logit = self.decode(
                 hidden=hidden,
                 cell=cell,
@@ -147,7 +148,6 @@ class ResnetLSTM(nn.Module):
             input_token = torch.argmax(logit, 1)
 
             if input_token == self._vocab["<EOS>"]:
-                outputs[:, t + 1 :, ...] = self._vocab["<PAD>"]
                 break
 
         return outputs
