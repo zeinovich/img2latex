@@ -7,7 +7,7 @@ from ..preprocessing.tokenizer import LaTEXTokenizer
 
 def cli() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Makes LaTEX vocabulary from a file. Outputs JSON file"
+        description="Makes LaTEX tokenized dataset."
     )
     parser.add_argument(
         "input-file",
