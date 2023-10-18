@@ -2,12 +2,12 @@ import pytest
 import json
 import warnings
 
-from ..preprocessing import LaTEXTokenizer
+from ..preprocessing.tokenizer import LaTEXTokenizer
 
 
 @pytest.fixture()
 def tokenizer():
-    with open("../data/processed/token2id.json", "r") as f:
+    with open("./data/processed/token2id.json", "r") as f:
         token2id = json.load(f)
 
     return LaTEXTokenizer(token2id)

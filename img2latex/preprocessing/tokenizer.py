@@ -27,7 +27,7 @@ class LaTEXTokenizer:
         return_tensors: bool = True,
         pad: bool = True,
         max_len: int = 512,
-    ) -> Union[torch.Tensor, list]:  # separate dots
+    ) -> Union[torch.Tensor, list[list[int]]]:  # separate dots
         """
         Tokenize list of sentences.
 
@@ -73,7 +73,8 @@ class LaTEXTokenizer:
         return x
 
     def decode(
-        self, x: Union[torch.Tensor, np.ndarray, list[int]]
+        self,
+        x: Union[torch.Tensor, np.ndarray, list[int]],
     ) -> list[str]:
         """
         Decodes input array of indices into a string(s)
@@ -116,7 +117,7 @@ class LaTEXTokenizer:
         Get mapping (str2int) of special tokens
         """
         tokens = ["<SOS>", "<PAD>", "<EOS>"]
-        return {k: self.token2id.get(k, None) for k in tokens}
+        return {k: self.token2id.get(k, 3) for k in tokens}
 
     @property
     def id2token(self) -> dict[int, str]:

@@ -7,7 +7,7 @@ from ..models.cnn_lstm import ResnetLSTM
 
 @pytest.fixture()
 def token2id() -> dict[str, int]:
-    with open("../data/processed/token2id.json", "r") as f:
+    with open("./data/processed/token2id.json", "r") as f:
         token2id_ = json.load(f)
     return token2id_
 
