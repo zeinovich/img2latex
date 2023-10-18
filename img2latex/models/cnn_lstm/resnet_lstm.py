@@ -2,17 +2,21 @@ import torch
 import torch.nn as nn
 from torchvision.models import resnet18, resnet34, resnet50, resnet101
 
+# [TODO] add device member
+# [TODO] add image_size member
+# [TODO] add model ABC
+
 
 class ResnetLSTM(nn.Module):
     def __init__(
         self,
-        resnet_depth: int,
-        encoder_out: int,
-        emb_dim: int,
-        hidden_dim: int,
-        dropout_prob: float,
-        vocab: dict[str, int],
-        max_output_length: int,
+        resnet_depth: int = 34,
+        encoder_out: int = 512,
+        emb_dim: int = 64,
+        hidden_dim: int = 256,
+        dropout_prob: float = 0.2,
+        vocab: dict[str, int] = None,
+        max_output_length: int = 512,
         device: str = "cpu",
     ) -> None:
         super().__init__()
@@ -28,6 +32,7 @@ class ResnetLSTM(nn.Module):
         self._hidden_dim = hidden_dim
         self._vocab = vocab
         # output dim is set to vocab_size
+        # will raise TypeError if not specified
         self._output_dim = len(self._vocab)
         self._emb_dim = emb_dim
         self._max_len = max_output_length
@@ -74,11 +79,13 @@ class ResnetLSTM(nn.Module):
             torch.ones(batch_size, self._max_len, self._output_dim)
             .type_as(x)
             .long()
+            .to(self._device)
             * self._vocab["<PAD>"]
         )
         # 1st input is always <START_SEQ>
         input_token = (
-            torch.ones(batch_size, 1).type_as(x).long() * self._vocab["<SOS>"]
+            torch.ones(batch_size, 1).type_as(x).to(self._device).long()
+            * self._vocab["<SOS>"]
         )
         output = encoded_img
         hidden = self.init_hidden(encoded_img)
@@ -126,11 +133,13 @@ class ResnetLSTM(nn.Module):
             torch.ones(batch_size, self._max_len, self._output_dim)
             .type_as(x)
             .long()
+            .to(self._device)
             * self._vocab["<PAD>"]
         )
         # 1st input is always <START_SEQ>
         input_token = (
-            torch.ones(batch_size, 1).type_as(x).long() * self._vocab["<SOS>"]
+            torch.ones(batch_size, 1).type_as(x).to(self._device).long()
+            * self._vocab["<SOS>"]
         )
         output = encoded_img
         hidden = self.init_hidden(encoded_img)
