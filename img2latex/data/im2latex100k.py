@@ -11,6 +11,8 @@ class IM2LaTEX100K(Dataset):
     def __init__(
         self,
         file: str,
+        # seq_len: int,
+        vocab_len: int,
         transform: Union[T.Compose, None],
     ):
         super().__init__()
@@ -19,6 +21,8 @@ class IM2LaTEX100K(Dataset):
             self.file, col_name="formula_tokenized"
         )  # "formula_tokenized" will be renamed into "formula"
         self.transform = transform
+        self.vocab_len = vocab_len
+        # self.seq_len = seq_len
 
     def __getitem__(self, index) -> tuple[torch.Tensor]:
         row = self.data.iloc[index]
@@ -30,9 +34,10 @@ class IM2LaTEX100K(Dataset):
         if self.transform is not None:
             img = self.transform(img)
 
-        tokens = torch.Tensor(tokens[0])
+        tokens = torch.Tensor(tokens[0]).long()
+        logits = torch.nn.functional.one_hot(tokens, self.vocab_len)
 
-        return img, tokens
+        return img, logits
 
     def __len__(self) -> int:
         return self.data.shape[0]
