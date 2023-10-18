@@ -1,9 +1,8 @@
 import argparse
 import json
-import pandas as pd
 
 from .utils import read_input, save_output
-from ..preprocessing import LaTEXTokenizer
+from ..preprocessing.tokenizer import LaTEXTokenizer
 
 
 def cli() -> argparse.Namespace:
@@ -49,31 +48,36 @@ def read_vocab(path: str) -> dict[str, int]:
     return token2id
 
 
-def main():
-    args = vars(cli())
-
-    INPUT_FILE = args["input-file"]
-    OUTPUT_FILE = args["output-file"]
-    VOCAB_FILE = args["vocab"]
-    COL_NAME = args["col_name"]
-    PADDING = args["add_padding"]
-
-    token2id = read_vocab(VOCAB_FILE)
-    df = read_input(INPUT_FILE, col_name=COL_NAME)
+def preprocess_function(
+    input_file: str,
+    vocab: str,
+    col_name: str,
+    add_padding: str,
+    output_file: str,
+) -> None:
+    token2id = read_vocab(vocab)
+    df = read_input(input_file, col_name=col_name)
     df_len = df.shape[0]
     df = df.dropna(axis=0)
 
     if df_len != df.shape[0]:
-        print(f"Dropped {df_len - df.shape[0]} rows from {INPUT_FILE}")
+        print(f"Dropped {df_len - df.shape[0]} rows from {input_file}")
 
     df["formula"] = df["formula"].apply(lambda x: [x])
 
     tokenizer = LaTEXTokenizer(token2id=token2id)
     df["tokenized_formula"] = df["formula"].apply(
-        tokenizer.tokenize, return_tensors=False, pad=PADDING, max_len=512
+        tokenizer.tokenize, return_tensors=False, pad=add_padding, max_len=512
     )
     df = df.drop("formula", axis=1)
-    save_output(OUTPUT_FILE, df)
+    save_output(output_file, df)
+
+
+def main():
+    args = vars(cli())
+    args = {k.replace("-", "_"): v for k, v in args.items()}
+    print(args)
+    preprocess_function(**args)
 
 
 # from project root

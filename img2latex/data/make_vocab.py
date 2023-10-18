@@ -35,15 +35,10 @@ def cli() -> argparse.Namespace:
     return args
 
 
-def main():
-    args = vars(cli())
-    print(args)
-    INPUT_FILE = args["input-file"]
-    OUTPUT_FOLDER = args["output-folder"]
-    ADD_SPECIAL = args["add_special"]
-    COL_NAME = args["col_name"]
-
-    df = read_input(INPUT_FILE, COL_NAME)
+def make_vocab_func(
+    input_file: str, col_name: str, add_special: bool, output_folder: str
+) -> None:
+    df = read_input(input_file, col_name)
 
     df["formula"] = df["formula"].apply(lambda x: x.replace(".", " . "))
     df["formula"] = df["formula"].apply(lambda x: re.sub("(\d)", r" \1", x))
@@ -53,14 +48,21 @@ def main():
     vocab = Counter([x for sublist in words for x in sublist])
     vocab = sorted(list(vocab.keys()))
 
-    if ADD_SPECIAL:
+    if add_special:
         vocab = ["<UNK>", "<SOS>", "<PAD>", "<EOS>"] + vocab
 
     token2id = {k: i for i, k in enumerate(vocab)}
     id2token = {i: k for i, k in enumerate(vocab)}
 
-    save_output(path=f"{OUTPUT_FOLDER}/token2id.json", obj=token2id)
-    save_output(path=f"{OUTPUT_FOLDER}/id2token.json", obj=id2token)
+    save_output(path=f"{output_folder}/token2id.json", obj=token2id)
+    save_output(path=f"{output_folder}/id2token.json", obj=id2token)
+
+
+def main():
+    args = vars(cli())
+    args = {k.replace("-", "_"): v for k, v in args.items()}
+    print(args)
+    make_vocab_func(**args)
 
 
 if __name__ == "__main__":
