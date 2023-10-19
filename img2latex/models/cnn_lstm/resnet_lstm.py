@@ -11,7 +11,6 @@ class ResnetLSTM(nn.Module):
     def __init__(
         self,
         resnet_depth: int = 34,
-        encoder_out: int = 512,
         emb_dim: int = 64,
         hidden_dim: int = 256,
         dropout_prob: float = 0.2,
@@ -28,7 +27,7 @@ class ResnetLSTM(nn.Module):
             101,
         ], "resnet_depth must be one of [18, 34, 50, 101]"
 
-        self._encoder_out = encoder_out
+        self._encoder_out = hidden_dim
         self._hidden_dim = hidden_dim
         self._vocab = vocab
         # output dim is set to vocab_size
@@ -38,37 +37,31 @@ class ResnetLSTM(nn.Module):
         self._max_len = max_output_length
         self._device = device
 
-        if resnet_depth == 18:
-            self.encoder = resnet18()
-        if resnet_depth == 34:
-            self.encoder = resnet34()
-        if resnet_depth == 50:
-            self.encoder = resnet50()
-        if resnet_depth == 101:
-            self.encoder = resnet101()
+        self.encoder = torch.hub.load(
+            "pytorch/vision:v0.10.0", f"resnet{resnet_depth}", pretrained=True
+        )
+        for param in self.encoder.parameters():
+            param.requires_grad = False
 
         self.encoder.fc = nn.Sequential(
             nn.Linear(self.encoder.fc.in_features, self._encoder_out)
         )
 
-        self.decoder = nn.LSTMCell(
+        self.decoder = nn.LSTM(
             input_size=self._emb_dim + self._encoder_out,
             hidden_size=self._hidden_dim,
+            num_layers=1,
+            batch_first=True,
         )
-        # initializes hidden state from encoder output
-        # for initial out_t encoded_img is used
-        self.init_hidden = nn.Linear(
-            self._encoder_out, self._hidden_dim, bias=False
-        )
-        self.init_cell = nn.Linear(
-            self._encoder_out, self._hidden_dim, bias=False
-        )
+        self.init_hidden = nn.Linear(self._encoder_out, self._hidden_dim)
+        self.init_cell = nn.Linear(self._encoder_out, self._hidden_dim)
+        self.init_output = nn.Linear(self._encoder_out, self._hidden_dim)
 
         self.dropout = nn.Dropout(p=dropout_prob)
-        self.embedding = nn.Embedding(self._output_dim, self._emb_dim)
-        self.fc = nn.Linear(self._hidden_dim, self._encoder_out, bias=False)
-        self.relu = nn.LeakyReLU()
-        self.fc_out = nn.Linear(self._encoder_out, self._output_dim)
+        self.embedding = nn.Embedding(
+            self._output_dim, self._emb_dim, padding_idx=self._vocab["<PAD>"]
+        )
+        self.fc_out = nn.Linear(self._hidden_dim, self._output_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         batch_size = x.size(0)
@@ -76,9 +69,10 @@ class ResnetLSTM(nn.Module):
 
         # outputs of shape (B, MAX_LEN, VOCAB_SIZE (OUTPUT_DIM))
         outputs = (
-            torch.ones(batch_size, self._max_len, self._output_dim)
+            torch.ones(
+                batch_size, self._max_len, self._output_dim, requires_grad=True
+            )
             .type_as(x)
-            .long()
             .to(self._device)
             * self._vocab["<PAD>"]
         )
@@ -87,9 +81,10 @@ class ResnetLSTM(nn.Module):
             torch.ones(batch_size, 1).type_as(x).to(self._device).long()
             * self._vocab["<SOS>"]
         )
-        output = encoded_img
+
         hidden = self.init_hidden(encoded_img)
         cell = self.init_cell(encoded_img)
+        output = self.init_output(encoded_img)
 
         for t in range(1, self._max_len):
             hidden, cell, output, logit = self.decode(
@@ -102,6 +97,9 @@ class ResnetLSTM(nn.Module):
             outputs[:, t, ...] = logit
             input_token = torch.argmax(logit, 1)
 
+            # if input_token.item == self._vocab["<EOS>"]:
+            #     break
+
         return outputs
 
     def decode(
@@ -113,13 +111,7 @@ class ResnetLSTM(nn.Module):
     ) -> tuple[torch.Tensor]:
         prev_y = self.embedding(input_token).squeeze(1)
         input_t = torch.cat([prev_y, out_t], 1)
-
-        hidden_t, cell_t = self.decoder(input_t, (hidden, cell))
-        hidden_t, cell_t = self.dropout(hidden_t), self.dropout(cell_t)
-
-        out_t = self.fc(hidden_t).tanh()
-        out_t = self.dropout(out_t)
-        out_t = self.relu(out_t)
+        out_t, (hidden_t, cell_t) = self.decoder(input_t, (hidden, cell))
         logit = self.fc_out(out_t)
 
         return hidden_t, cell_t, out_t, logit
@@ -171,3 +163,7 @@ class ResnetLSTM(nn.Module):
     @property
     def max_len(self):
         return self._max_len
+
+    @property
+    def device(self):
+        return self._device
