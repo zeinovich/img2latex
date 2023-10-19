@@ -280,4 +280,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-# python -m img2latex.training -m img2latex.models.cnn_lstm.ResnetLSTM -d ./data/interim/tokens.debug.csv ./data/interim/tokens.debug.csv ./data/interim/tokens.debug.csv
+# python -m img2latex.training.train -m img2latex.models.cnn_lstm.ResnetLSTM -d ./data/interim/tokens.debug.csv ./data/interim/tokens.debug.csv ./data/interim/tokens.debug.csv --vocab ./data/processed/token2id.json --image-folder data/raw/formula_images_processed/formula_images_processed/ --num-epochs 200

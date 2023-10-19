@@ -1,20 +1,28 @@
 import torch
 import torch.nn as nn
-from torchvision.models import resnet18, resnet34, resnet50, resnet101
+from torchvision.models import (
+    ResNet18_Weights,
+    ResNet34_Weights,
+    ResNet50_Weights,
+    ResNet101_Weights,
+)
+
+from ..base_model import BaseIm2SeqModel
+import sys
 
 # [TODO] add device member
 # [TODO] add image_size member
 # [TODO] add model ABC
 
 
-class ResnetLSTM(nn.Module):
+class ResnetLSTM(BaseIm2SeqModel):
     def __init__(
         self,
-        resnet_depth: int = 34,
-        emb_dim: int = 64,
-        hidden_dim: int = 256,
-        dropout_prob: float = 0.2,
-        vocab: dict[str, int] = None,
+        resnet_depth: int = 18,
+        emb_dim: int = 16,
+        hidden_dim: int = 128,
+        dropout_prob: float = 0,
+        vocab_len: dict[str, int] = None,
         max_output_length: int = 512,
         device: str = "cpu",
     ) -> None:
@@ -29,17 +37,33 @@ class ResnetLSTM(nn.Module):
 
         self._encoder_out = hidden_dim
         self._hidden_dim = hidden_dim
-        self._vocab = vocab
-        # output dim is set to vocab_size
-        # will raise TypeError if not specified
-        self._output_dim = len(self._vocab)
+        self._vocab_len = vocab_len
+
+        # standard vocabulary with special tokens
+        self._vocab = {
+            "<UNK>": 0,
+            "<SOS>": 1,
+            "<PAD>": 2,
+            "<EOS>": 3,
+        }
+        # output dim is set to vocab_len
+        self._output_dim = self._vocab_len
         self._emb_dim = emb_dim
         self._max_len = max_output_length
         self._device = device
 
+        # import weights from corresponding module
+        weights = getattr(
+            sys.modules[__name__], f"ResNet{resnet_depth}_Weights"
+        ).DEFAULT
+
+        # load model and weights from torch.hub
         self.encoder = torch.hub.load(
-            "pytorch/vision:v0.10.0", f"resnet{resnet_depth}", pretrained=True
+            "pytorch/vision:v0.10.0",
+            f"resnet{resnet_depth}",
+            weights=weights,
         )
+
         for param in self.encoder.parameters():
             param.requires_grad = False
 
@@ -67,7 +91,7 @@ class ResnetLSTM(nn.Module):
         batch_size = x.size(0)
         encoded_img = self.encoder(x)
 
-        # outputs of shape (B, MAX_LEN, VOCAB_SIZE (OUTPUT_DIM))
+        # outputs of shape (B, MAX_LEN, VOCAB_len_SIZE (OUTPUT_DIM))
         outputs = (
             torch.ones(
                 batch_size, self._max_len, self._output_dim, requires_grad=True
@@ -97,8 +121,8 @@ class ResnetLSTM(nn.Module):
             outputs[:, t, ...] = logit
             input_token = torch.argmax(logit, 1)
 
-            # if input_token.item == self._vocab["<EOS>"]:
-            #     break
+            if input_token.item() == self._vocab["<EOS>"]:
+                break
 
         return outputs
 
@@ -120,7 +144,7 @@ class ResnetLSTM(nn.Module):
         batch_size = x.size(0)
         encoded_img = self.encoder(x)
 
-        # outputs of shape (B, MAX_LEN, VOCAB_SIZE (OUTPUT_DIM))
+        # outputs of shape (B, MAX_LEN, VOCAB_LEN (OUTPUT_DIM))
         outputs = (
             torch.ones(batch_size, self._max_len, self._output_dim)
             .type_as(x)
