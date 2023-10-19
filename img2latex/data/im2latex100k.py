@@ -4,46 +4,49 @@ import torchvision.transforms as T
 
 from PIL import Image
 from typing import Union
-from .utils import read_input
+from .utils import read_input, prepare_csv_array
 
 
 class IM2LaTEX100K(Dataset):
     def __init__(
         self,
         file: str,
-        # seq_len: int,
+        image_folder: str,
         vocab_len: int,
         transform: Union[T.Compose, None],
     ):
         super().__init__()
-        self.file = file
-        self.data = read_input(
-            self.file, col_name="formula_tokenized"
+        self._file = file
+        self._data = read_input(
+            self._file, col_name="formula_tokenized"
         )  # "formula_tokenized" will be renamed into "formula"
-        self.transform = transform
-        self.vocab_len = vocab_len
-        # self.seq_len = seq_len
+        if file.endswith(".csv"):
+            self._data["formula"] = self._data["formula"].apply(
+                lambda x: prepare_csv_array(x)
+            )
+        self._transform = transform
+        self._vocab_len = vocab_len
+        self._image_folder = image_folder
 
     def __getitem__(self, index) -> tuple[torch.Tensor]:
-        row = self.data.iloc[index]
+        row = self._data.iloc[index]
         tokens = row["formula"]
-        img_path = row["image"]
+        img_path = f"{self._image_folder}/{row['image']}"
 
         img = Image.open(img_path)
 
-        if self.transform is not None:
-            img = self.transform(img)
+        if self._transform is not None:
+            img = self._transform(img)
 
-        tokens = torch.Tensor(tokens[0]).long()
-        logits = torch.nn.functional.one_hot(tokens, self.vocab_len)
+        tokens = torch.Tensor(tokens).long()
 
-        return img, logits
+        return img, tokens
 
     def __len__(self) -> int:
-        return self.data.shape[0]
+        return self._data.shape[0]
 
     def __repr__(self) -> str:
-        return f"IM2LaTEXDataset(file={self.file})"
+        return f"IM2LaTEXDataset(file={self._file}, image_folder={self._image_folder})"
 
     def __str__(self) -> str:
         return self.__repr__()

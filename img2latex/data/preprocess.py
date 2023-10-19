@@ -70,6 +70,7 @@ def preprocess_function(
         tokenizer.tokenize, return_tensors=False, pad=add_padding, max_len=512
     )
     df = df.drop("formula", axis=1)
+    df = df.rename({"tokenized_formula": "formula"}, axis=1)
     save_output(output_file, df)
 
 
