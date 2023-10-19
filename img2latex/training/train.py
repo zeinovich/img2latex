@@ -96,7 +96,6 @@ def training_func(
     dataloaders: dict[str, DataLoader],
     checkpoint: str,
 ) -> None:
-    # [TODO] Save checkpoint & history [DONE]
     # [TODO] Return value
     # [TODO] TQDM
     # [TODO] Metrics
@@ -107,6 +106,10 @@ def training_func(
 
     lengths = {phase: len(dl) for phase, dl in dataloaders.items()}
     history = {}
+
+    # for checkpoints
+    keep = 2  # number of checkpoints to keep
+    _last_saved = []  # cached paths of checkpoints
     # range (1, n_epochs + 1) for prettier monitoring
     # (doesn't matter)
     for epoch in range(1, n_epochs + 1):
@@ -177,15 +180,22 @@ def training_func(
 
         if losses["val"] < min_loss:
             min_loss = losses["val"]
-            # torch.save(
-            #     {
-            #         "model": model.state_dict(),
-            #         "optimizer": optimizer.state_dict(),
-            #         "scheduler": scheduler.state_dict(),
-            #         "history": history,
-            #     },
-            #     f"{checkpoint}/{datetime.now().strftime('%d%m-%H%M')}-acc-{accuracies['val']:.3f}.pth",
-            # )
+            file_path = f"{checkpoint}/{datetime.now().strftime('%d%m-%H%M%S')}-acc-{accuracies['val']:.3f}.pth"
+            torch.save(
+                {
+                    "model": model.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "scheduler": scheduler.state_dict(),
+                    "history": history,
+                },
+                file_path,
+            )
+
+            _last_saved.append(file_path)
+
+            if len(_last_saved) > keep:
+                oldest = _last_saved.pop(0)
+                os.remove(oldest)
 
         print(
             f"{epoch=}  train={losses['train']:.3f}  val={losses['val']:.3f}  lr={lr[0]:.5f}   accuracy={accuracies['val']:.4f}"
