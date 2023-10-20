@@ -15,5 +15,9 @@ class BaseIm2SeqModel(ABC, nn.Module):
     def device(self) -> torch.device:
         pass
 
+    @abstractproperty
+    def img_size(self) -> int:
+        pass
+
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         return self.forward(x)
