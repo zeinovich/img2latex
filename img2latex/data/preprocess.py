@@ -35,6 +35,11 @@ def cli() -> argparse.Namespace:
         action=argparse.BooleanOptionalAction,
         help="Whether or not pad sequences to max_len=512",
     )
+    parser.add_argument(
+        "--debug",
+        action=argparse.BooleanOptionalAction,
+        help="If set, only 1 sample from DataFrame is used for debugging.",
+    )
 
     args = parser.parse_args()
     return args
@@ -54,6 +59,7 @@ def preprocess_function(
     col_name: str,
     add_padding: str,
     output_file: str,
+    debug: bool,
 ) -> None:
     token2id = read_vocab(vocab)
     df = read_input(input_file, col_name=col_name)
@@ -62,6 +68,9 @@ def preprocess_function(
 
     if df_len != df.shape[0]:
         print(f"Dropped {df_len - df.shape[0]} rows from {input_file}")
+
+    if debug:
+        df = df.sample(1)
 
     df["formula"] = df["formula"].apply(lambda x: [x])
 
