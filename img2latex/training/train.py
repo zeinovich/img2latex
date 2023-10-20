@@ -35,7 +35,7 @@ def cli() -> argparse.Namespace:
         type=str,
         required=True,
         help="Model architecture to be trained. \
-Only img2latex.models.cnn_lstm.ResnetLSTM available",
+Only img2latex.models.cnn_lstm.CNNLSTM available",
     )
     parser.add_argument(
         "--config",
@@ -95,6 +95,7 @@ def training_func(
     scheduler: optim.lr_scheduler.LRScheduler,
     dataloaders: dict[str, DataLoader],
     checkpoint: str,
+    end_token: int,
 ) -> None:
     # [TODO] Return value
     # [TODO] TQDM
@@ -160,9 +161,16 @@ def training_func(
                     losses[phase] += loss.item() / lengths[phase]
 
                     # [TODO] Mb ignore padding ???
-                    predictions = output[:, 1:].argmax(2)
+                    predictions = output.argmax(2)
+
+                    end_token_idx = (tokens == end_token).nonzero(
+                        as_tuple=True
+                    )[0]
+
                     num_correct[phase] += torch.sum(
-                        predictions == tokens[:, 1:], dim=1
+                        predictions[:, 1:end_token_idx]
+                        == tokens[:, 1:end_token_idx],
+                        dim=1,
                     ).item()
                     num_total[phase] += tokens_flat.size(0)
                     accuracies[phase] = num_correct[phase] / num_total[phase]
@@ -234,8 +242,9 @@ def train_model(
     transforms = T.Compose(
         [
             T.ToTensor(),
-            T.Resize(224, antialias=True),
-            T.CenterCrop(224),
+            T.Resize(model.img_size, antialias=True),
+            T.CenterCrop(model.img_size),
+            T.Grayscale(),
         ]
     )
 
@@ -272,6 +281,7 @@ def train_model(
         scheduler=scheduler,
         dataloaders=dataloaders,
         checkpoint=checkpoint,
+        end_token=vocab["<EOS>"],
     )
 
     return

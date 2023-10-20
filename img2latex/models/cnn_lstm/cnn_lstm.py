@@ -27,7 +27,7 @@ class ConvBlock(nn.Module):
             stride=stride,
             padding=padding,
         )
-        self.relu = nn.ReLU()
+        self.relu = nn.LeakyReLU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -49,22 +49,14 @@ class ConvBlock(nn.Module):
 class CNNLSTM(BaseIm2SeqModel):
     def __init__(
         self,
-        resnet_depth: int = 18,
         emb_dim: int = 24,
-        hidden_dim: int = 512,
+        hidden_dim: int = 256,
         dropout_prob: float = 0,
         vocab_len: int = None,
         max_output_length: int = 512,
         device: str = "cpu",
     ) -> None:
         super().__init__()
-
-        assert resnet_depth in [
-            18,
-            34,
-            50,
-            101,
-        ], "resnet_depth must be one of [18, 34, 50, 101]"
 
         # At least special tokens must be present
         assert vocab_len > 4, "Vocabulary length must be at least 4"
@@ -84,6 +76,7 @@ class CNNLSTM(BaseIm2SeqModel):
         self._emb_dim = emb_dim
         self._max_len = max_output_length
         self._device = device
+        self._img_size = 256
         self._img_size = 256
 
         # import weights from corresponding module
@@ -120,6 +113,7 @@ class CNNLSTM(BaseIm2SeqModel):
         )
         self.fc_out = nn.Sequential(
             nn.Linear(self._hidden_dim, self._hidden_dim),
+            nn.LeakyReLU(),
             nn.Linear(self._hidden_dim, self._output_dim),
         )
 
@@ -180,6 +174,7 @@ class CNNLSTM(BaseIm2SeqModel):
         hidden = encoded_img
         cell = torch.zeros(batch_size, self._hidden_dim)
         output = torch.zeros(batch_size, self._hidden_dim)
+
         # outputs of shape (B, MAX_LEN, VOCAB_LEN (OUTPUT_DIM))
         outputs = (
             torch.ones(batch_size, self._max_len, self._output_dim)
@@ -224,6 +219,10 @@ class CNNLSTM(BaseIm2SeqModel):
     @property
     def device(self):
         return self._device
+
+    @property
+    def img_size(self):
+        return self._img_size
 
     @property
     def img_size(self):
