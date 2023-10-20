@@ -3,10 +3,6 @@ import torch.nn as nn
 
 from ..base_model import BaseIm2SeqModel
 
-from typing import Union
-
-# [TODO] add model ABC
-
 
 class ConvBlock(nn.Module):
     """

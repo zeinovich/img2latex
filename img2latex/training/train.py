@@ -4,7 +4,6 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
 import torchvision.transforms as T
 from torch.utils.data import DataLoader
-import torch.functional as F
 
 from ..data import IM2LaTEX100K  # Dataset
 from ..data.utils import read_input
@@ -16,7 +15,6 @@ import importlib
 import argparse
 from tqdm import tqdm
 from datetime import datetime
-import json
 
 
 # [TODO] ABC for model
