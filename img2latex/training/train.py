@@ -9,10 +9,12 @@ import torch.functional as F
 from ..data import IM2LaTEX100K  # Dataset
 from ..data.utils import read_input
 from ..models.base_model import BaseIm2SeqModel
+from .utils import edit_distance, make_training_report
 
 import os
 import importlib
 import argparse
+from tqdm import tqdm
 from datetime import datetime
 import json
 
@@ -97,10 +99,6 @@ def training_func(
     checkpoint: str,
     end_token: int,
 ) -> None:
-    # [TODO] Return value
-    # [TODO] TQDM
-    # [TODO] Metrics
-
     # training consists of 3 phases: train, val, test
     # test is performed only once after model has been
     # trained for NUM_EPOCHS
@@ -112,12 +110,12 @@ def training_func(
     keep = 2  # number of checkpoints to keep
     _last_saved = []  # cached paths of checkpoints
     # range (1, n_epochs + 1) for prettier monitoring
-    # (doesn't matter)
     for epoch in range(1, n_epochs + 1):
         losses = {"train": 0, "val": 0, "test": 0}
         num_correct = {"train": 0, "val": 0, "test": 0}
         num_total = {"train": 0, "val": 0, "test": 0}
         accuracies = {"train": 0, "val": 0, "test": 0}
+        total_distances = {"train": 0, "val": 0, "test": 0}
         levenstein = {"train": 0, "val": 0, "test": 0}
         min_loss = float("inf")
 
@@ -132,10 +130,15 @@ def training_func(
                 # skip test phase if not last epoch
                 continue
 
-            for img, tokens in dataloaders[phase]:
+            # tqdm progress bar
+            with tqdm(
+                dataloaders[phase], miniters=1, unit="batch"
+            ) as pbar, torch.set_grad_enabled(phase == "train"):
                 # if phase != "train" works as torch.no_grad()
-                with torch.set_grad_enabled(phase == "train"):
-                    optimizer.zero_grad()
+                for img, tokens in pbar:
+                    pbar.set_description_str(
+                        f"{phase.capitalize():5}({epoch:03d})"
+                    )
 
                     # tokens [batch_size, max_len]
                     # output [batch_size, max_len, len(vocab)]
@@ -156,6 +159,7 @@ def training_func(
                     if phase == "train":
                         loss.backward()
                         optimizer.step()
+                        optimizer.zero_grad()
 
                     # scale loss by length of dataloader to obtain avg loss
                     losses[phase] += loss.item() / lengths[phase]
@@ -163,52 +167,82 @@ def training_func(
                     # [TODO] Mb ignore padding ???
                     predictions = output.argmax(2)
 
+                    # get index of <EOS> token guaranteed to be only one in tokens
                     end_token_idx = (tokens == end_token).nonzero(
                         as_tuple=True
-                    )[0]
+                    )[-1]
+                    # truncate to only valuable output
+                    # after hitting EOS tokens all true tokens will be <PAD>
+                    predictions = predictions[:, 1:end_token_idx]
+                    tokens = tokens[:, 1:end_token_idx]
 
+                    # compute accuracy
                     num_correct[phase] += torch.sum(
-                        predictions[:, 1:end_token_idx]
-                        == tokens[:, 1:end_token_idx],
+                        predictions == tokens,
                         dim=1,
                     ).item()
-                    num_total[phase] += tokens_flat.size(0)
+
+                    num_total[phase] += tokens.size(0) * tokens.size(1)
                     accuracies[phase] = num_correct[phase] / num_total[phase]
 
-            if phase == "train":
-                lr = scheduler.get_last_lr()
-                scheduler.step()
+                    # compute edit distances over batch
+                    for b in range(tokens.size(0)):
+                        total_distances[phase] += edit_distance(
+                            predictions[b], tokens[b]
+                        )
+                    # average over epoch
+                    levenstein[phase] = (
+                        total_distances[phase]
+                        # number of sequences processed = total_tokens / seq_len
+                        / (num_total[phase] / tokens.size(1))
+                    )
 
-        # save training history
-        history[epoch] = {
-            "acc": accuracies,
-            "lev_dict": levenstein,
-            "loss": losses,
-        }
+                    # make progress string
+                    report = make_training_report(
+                        losses[phase],
+                        levenstein[phase],
+                        accuracies[phase],
+                        scheduler.get_last_lr()[0],
+                    )
+                    pbar.set_postfix_str(report)
 
-        if losses["val"] < min_loss:
-            min_loss = losses["val"]
-            file_path = f"{checkpoint}/{datetime.now().strftime('%d%m-%H%M%S')}-acc-{accuracies['val']:.3f}.pth"
-            torch.save(
-                {
-                    "model": model.state_dict(),
-                    "optimizer": optimizer.state_dict(),
-                    "scheduler": scheduler.state_dict(),
-                    "history": history,
-                },
-                file_path,
-            )
+                # step scheduler after epoch if training
+                if phase == "train":
+                    lr = scheduler.get_last_lr()[0]
+                    scheduler.step()
 
-            _last_saved.append(file_path)
+            # save training history
+            history[epoch] = {
+                "acc": accuracies,
+                "edit_dist": levenstein,
+                "loss": losses,
+                "lr": lr,
+            }
 
-            if len(_last_saved) > keep:
-                oldest = _last_saved.pop(0)
-                os.remove(oldest)
+            if losses["val"] < min_loss:
+                min_loss = losses["val"]
+                file_path = f"{checkpoint}/{datetime.now().strftime('%d%m-%H%M%S')}-acc-{accuracies['val']:.3f}.pth"
+                torch.save(
+                    {
+                        "model": model.state_dict(),
+                        "optimizer": optimizer.state_dict(),
+                        "scheduler": scheduler.state_dict(),
+                        "history": history,
+                    },
+                    file_path,
+                )
 
-        print(
-            f"{epoch=}  train={losses['train']:.3f}  val={losses['val']:.3f}  lr={lr[0]:.5f}   accuracy={accuracies['val']:.4f}"
-        )
-    print(f"test={losses['test']}")
+                _last_saved.append(file_path)
+
+                # remove file if more than KEEP is stored
+                if len(_last_saved) > keep:
+                    oldest = _last_saved.pop(0)
+
+                    if os.path.exists(oldest):
+                        os.remove(oldest)
+
+    print(f"Last checkpoint: {_last_saved[-1]}")
+    return history, model
 
 
 def train_model(
@@ -226,7 +260,7 @@ def train_model(
     model_class = import_class(model_arch)
     # [TODO] do not pass vocab only pass vocab length
 
-    model: BaseIm2SeqModel = model_class(vocab_len=len(vocab), device=device)
+    model = model_class(vocab_len=len(vocab), device=device)
 
     if checkpoint == "NA":
         checkpoint = f"./artifacts/{model_class.__name__}/"
@@ -242,8 +276,6 @@ def train_model(
     transforms = T.Compose(
         [
             T.ToTensor(),
-            T.Resize(model.img_size, antialias=True),
-            T.CenterCrop(model.img_size),
             T.Grayscale(),
         ]
     )
@@ -264,11 +296,9 @@ def train_model(
     }
 
     ce_loss = nn.CrossEntropyLoss(ignore_index=vocab["<PAD>"])
-    optimizer = optim.AdamW(
-        params=model.parameters(), lr=5e-2, weight_decay=1e-5
-    )
+    optimizer = optim.Adam(params=model.parameters(), lr=5e-2)
     scheduler = CosineAnnealingLR(
-        optimizer=optimizer, T_max=10, eta_min=5e-3, last_epoch=-1
+        optimizer=optimizer, T_max=10, eta_min=1e-3, last_epoch=-1
     )
 
     model.to(device)
