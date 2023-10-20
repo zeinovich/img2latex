@@ -128,11 +128,13 @@ class CNNLSTM(BaseIm2SeqModel):
             H * W,
             self._encoder_out,
         )  # [B, HIDDEN_DIM, H * W]
-        encoded_img = encoded_img.mean(dim=1)  # [B, HIDDEN_DIM]
+        encoded_img = encoded_img.mean(dim=1).to(
+            self._device
+        )  # [B, HIDDEN_DIM]
 
         hidden = self.hidden0_fc(encoded_img)
-        cell = torch.zeros(batch_size, self._hidden_dim)
-        output = torch.zeros(batch_size, self._hidden_dim)
+        cell = torch.zeros(batch_size, self._hidden_dim).to(self._device)
+        output = torch.zeros(batch_size, self._hidden_dim).to(self._device)
 
         for t in range(1, self._max_len):
             hidden, cell, output = self.decode(
@@ -213,11 +215,3 @@ class CNNLSTM(BaseIm2SeqModel):
     @property
     def device(self):
         return self._device
-
-    @property
-    def img_size(self):
-        return self._img_size
-
-    @property
-    def img_size(self):
-        return self._img_size
